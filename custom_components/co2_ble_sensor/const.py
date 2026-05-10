@@ -27,9 +27,23 @@ TUYA_BLE_WRITE_UUID: Final = "00002b11-0000-1000-8000-00805f9b34fb"
 TUYA_BLE_NOTIFY_UUID: Final = "00002b10-0000-1000-8000-00805f9b34fb"
 
 # Tuya API
-TUYA_API_URL: Final = "https://openapi.tuyaeu.com"
 TUYA_API_DEVICES_URL: Final = "/v1.0/devices/{device_id}"
 TUYA_API_TOKEN_URL: Final = "/v1.0/token?grant_type=1"
+
+CONF_REGION: Final = "region"
+TUYA_REGIONS: Final = {
+    "eu": "Europe (openapi.tuyaeu.com)",
+    "us": "America (openapi.tuyaus.com)",
+    "cn": "China (openapi.tuyacn.com)",
+    "in": "India (openapi.tuyain.com)",
+}
+TUYA_REGION_URLS: Final = {
+    "eu": "https://openapi.tuyaeu.com",
+    "us": "https://openapi.tuyaus.com",
+    "cn": "https://openapi.tuyacn.com",
+    "in": "https://openapi.tuyain.com",
+}
+DEFAULT_REGION: Final = "eu"
 
 # Sensor data points
 DP_CO2: Final = 2

@@ -21,13 +21,15 @@ from .const import (
     CONF_ACCESS_SECRET,
     CONF_USERNAME,
     CONF_PASSWORD,
-    CONF_COUNTRY_CODE,
+    CONF_REGION,
     CONF_CONNECTION_MODE,
     CONF_SCAN_INTERVAL,
     CONNECTION_MODE_PERSISTENT,
     CONNECTION_MODE_SMART,
     DEFAULT_SCAN_INTERVAL,
     DEFAULT_CONNECTION_MODE,
+    DEFAULT_REGION,
+    TUYA_REGIONS,
     TUYA_BLE_SERVICE_UUID,
 )
 from .tuya_cloud import TuyaCloudClient
@@ -111,11 +113,11 @@ class CO2BLESensorConfigFlow(ConfigFlow, domain=DOMAIN):
         return self.async_show_form(
             step_id="credentials",
             data_schema=vol.Schema({
+                vol.Required(CONF_REGION, default=DEFAULT_REGION): vol.In(TUYA_REGIONS),
                 vol.Required(CONF_ACCESS_ID): str,
                 vol.Required(CONF_ACCESS_SECRET): str,
                 vol.Required(CONF_USERNAME): str,
                 vol.Required(CONF_PASSWORD): str,
-                vol.Optional(CONF_COUNTRY_CODE, default="380"): str,
             }),
             errors=errors,
             description_placeholders={
@@ -134,7 +136,7 @@ class CO2BLESensorConfigFlow(ConfigFlow, domain=DOMAIN):
             access_secret=self._credentials[CONF_ACCESS_SECRET],
             username=self._credentials[CONF_USERNAME],
             password=self._credentials[CONF_PASSWORD],
-            country_code=self._credentials.get(CONF_COUNTRY_CODE, "380"),
+            region=self._credentials.get(CONF_REGION, DEFAULT_REGION),
         )
 
         device_creds = await cloud.get_device_credentials(address)

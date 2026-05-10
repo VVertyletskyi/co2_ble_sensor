@@ -11,11 +11,11 @@
         "title": "Tuya Cloud Credentials",
         "description": "Enter your Tuya IoT Platform credentials to get the device encryption key. This is needed only once.",
         "data": {
+          "region": "Tuya IoT region",
           "access_id": "Tuya IoT Access ID",
           "access_secret": "Tuya IoT Access Secret",
-          "username": "Smart Life / MOES account email",
-          "password": "Smart Life / MOES account password",
-          "country_code": "Country phone code (e.g. 380 for Ukraine)"
+          "username": "Smart Life / MOES account email or phone",
+          "password": "Smart Life / MOES account password"
         }
       }
     },
