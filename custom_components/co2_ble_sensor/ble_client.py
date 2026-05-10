@@ -297,11 +297,39 @@ class CO2BLEClient:
                 code, self._proto.build_time2_response(), seq))
 
     async def set_co2_alarm_threshold(self, value: int) -> bool:
-        """Send new CO2 alarm threshold to device (DP26)."""
+        """Send new CO2 alarm threshold to device (DP26). Forces connection if needed."""
         import struct as _struct
-        # DP format: id(1) + type(1) + len(1) + value(4)
         dp_data = _struct.pack(">BBBI", DP_CO2_ALARM_THRESHOLD, 2, 4, value)
-        return await self._send(CMD_SEND_DPS, dp_data)
+
+        # If already connected and paired — send directly
+        if self._connected and self._client and self._client.is_connected:
+            return await self._send(CMD_SEND_DPS, dp_data)
+
+        # Otherwise force a one-shot connection just to send the command
+        _LOGGER.debug("Not connected, forcing connection to send threshold command")
+        try:
+            device = self._device
+            async with BleakClient(device, timeout=CONNECT_TIMEOUT) as client:
+                self._client = client
+                await client.start_notify(TUYA_BLE_NOTIFY_UUID, self._notification_handler)
+
+                if not await self._send(CMD_DEVICE_INFO, b""):
+                    return False
+                if not self._proto.is_ready:
+                    return False
+
+                pair_result = await self._send_pair()
+                if pair_result not in (0, 2):
+                    return False
+
+                result = await self._send(CMD_SEND_DPS, dp_data)
+                await asyncio.sleep(1)
+                return result
+        except Exception as e:
+            _LOGGER.error("Failed to connect for threshold command: %s", e)
+            return False
+        finally:
+            self._client = None
 
     def _process_dps(self, data: bytes, start: int) -> None:
         """Parse datapoints and call data callback."""
