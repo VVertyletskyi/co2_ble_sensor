@@ -83,7 +83,6 @@ class TuyaCloudClient:
         body = json.dumps({
             "username": self._username,
             "password": password_md5,
-            "country_code": self._country_code,
             "schema": "smartlife",
         })
         headers = self._sign("POST", path, body=body, token=token)
