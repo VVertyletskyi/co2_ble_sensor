@@ -58,7 +58,8 @@ class TuyaBLECrypto:
 
     def _encrypt(self, data: bytes, key: bytes) -> bytes:
         """Encrypt data with AES-128-ECB."""
-        padded = data + b'\0' * (16 - len(data) % 16) if len(data) % 16 else data
+        remainder = len(data) % 16
+        padded = data + b'\0' * (16 - remainder) if remainder else data + b'\0' * 16
         cipher = Cipher(
             algorithms.AES(key[:16]),
             modes.ECB(),

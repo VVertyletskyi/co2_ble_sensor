@@ -155,7 +155,7 @@ class CO2BLEClient:
         """Process buffered data."""
         while len(self._buffer) >= 8:
             # Look for frame magic
-            if self._buffer[:2] != b'\x00\x00':
+            if self._buffer[:4] != b'\x00\x00\x55\xAA':
                 self._buffer = self._buffer[1:]
                 continue
 
