@@ -5,6 +5,7 @@ import hashlib
 import hmac
 import logging
 import time
+import uuid
 from typing import Any
 
 import aiohttp
@@ -32,11 +33,13 @@ class TuyaCloudClient:
         self._token_expiry: float = 0
 
     def _sign(self, method: str, path: str, body: str = "", token: str = "") -> dict:
-        """Generate Tuya API signature."""
+        """Generate Tuya API signature (supports both v1.0 and v2.0)."""
         t = str(int(time.time() * 1000))
+        nonce = str(uuid.uuid4())
         body_hash = hashlib.sha256(body.encode()).hexdigest()
         str_to_sign = "\n".join([method, body_hash, "", path])
-        message = self._access_id + token + t + str_to_sign
+        # v2.0 requires nonce in message
+        message = self._access_id + token + t + nonce + str_to_sign
         sign = hmac.new(
             self._access_secret.encode(),
             message.encode(),
@@ -48,6 +51,7 @@ class TuyaCloudClient:
             "t": t,
             "sign_method": "HMAC-SHA256",
             "access_token": token,
+            "nonce": nonce,
         }
 
     async def _get_token(self, session: aiohttp.ClientSession) -> str | None:
@@ -86,7 +90,7 @@ class TuyaCloudClient:
             page_size = 100
 
             while True:
-                path = f"/v1.0/iot-03/devices?page_no={page}&page_size={page_size}"
+                path = f"/v1.0/iot-01/associated-users/devices?page_no={page}&page_size={page_size}"
                 headers = self._sign("GET", path, token=token)
 
                 try:
@@ -101,8 +105,8 @@ class TuyaCloudClient:
                         return None
 
                     result = data.get("result", {})
-                    devices = result.get("list", [])
-                    total = result.get("total", 0)
+                    devices = result if isinstance(result, list) else result.get("devices", result.get("list", []))
+                    total = len(devices) if isinstance(result, list) else result.get("total", len(devices))
 
                     _LOGGER.debug(
                         "Page %d: got %d devices (total %d)", page, len(devices), total

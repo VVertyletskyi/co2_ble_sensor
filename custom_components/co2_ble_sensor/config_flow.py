@@ -141,8 +141,6 @@ class CO2BLESensorConfigFlow(ConfigFlow, domain=DOMAIN):
                     vol.Required(CONF_REGION, default=DEFAULT_REGION): vol.In(TUYA_REGIONS),
                     vol.Required(CONF_ACCESS_ID): str,
                     vol.Required(CONF_ACCESS_SECRET): str,
-                    vol.Required(CONF_USERNAME): str,
-                    vol.Required(CONF_PASSWORD): str,
                 }),
                 errors={"base": "cannot_connect"},
             )

@@ -51,6 +51,7 @@ DP_TEMPERATURE: Final = 18
 DP_HUMIDITY: Final = 19
 DP_BATTERY: Final = 15
 DP_CO2_STATE: Final = 1
+DP_CO2_ALARM_THRESHOLD: Final = 26
 
 # Update signals
 SIGNAL_UPDATE = f"{DOMAIN}_update"
