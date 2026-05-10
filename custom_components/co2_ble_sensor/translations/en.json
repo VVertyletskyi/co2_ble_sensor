@@ -1,0 +1,43 @@
+{
+  "config": {
+    "step": {
+      "device": {
+        "title": "Select CO2 BLE Device",
+        "data": {
+          "address": "Device"
+        }
+      },
+      "credentials": {
+        "title": "Tuya Cloud Credentials",
+        "description": "Enter your Tuya IoT Platform credentials to get the device encryption key. This is needed only once.",
+        "data": {
+          "access_id": "Tuya IoT Access ID",
+          "access_secret": "Tuya IoT Access Secret",
+          "username": "Smart Life / MOES account email",
+          "password": "Smart Life / MOES account password",
+          "country_code": "Country phone code (e.g. 380 for Ukraine)"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Could not get device key from Tuya cloud. Check your credentials.",
+      "device_not_found": "Device not found",
+      "no_devices_found": "No CO2 BLE devices found nearby"
+    },
+    "abort": {
+      "already_configured": "Device already configured",
+      "no_devices_found": "No CO2 BLE devices found. Make sure the device is nearby and powered on."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Connection Settings",
+        "data": {
+          "connection_mode": "Connection mode",
+          "scan_interval": "Update interval (seconds, only for Smart mode)"
+        }
+      }
+    }
+  }
+}
