@@ -20,7 +20,7 @@ from .tuya_crypto import (
     parse_datapoints,
     skip_timestamp,
     unpack_int,
-    CMD_DEVICE_INFO, CMD_PAIR, CMD_DEVICE_STATUS,
+    CMD_DEVICE_INFO, CMD_PAIR, CMD_DEVICE_STATUS, CMD_SEND_DPS,
     CMD_RECEIVE_DP, CMD_RECEIVE_TIME_DP, CMD_RECEIVE_SIGN_DP,
     CMD_RECEIVE_SIGN_TIME_DP, CMD_TIME1_REQ, CMD_TIME2_REQ,
 )
