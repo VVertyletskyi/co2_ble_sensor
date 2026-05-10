@@ -9,7 +9,7 @@
       },
       "credentials": {
         "title": "Tuya Cloud Credentials",
-        "description": "Enter your Tuya IoT Platform credentials to get the device encryption key. This is needed only once.",
+        "description": "Enter your Tuya IoT Platform credentials to get the device encryption key. This is needed only once.\n\n⚠️ If you get an authentication error, open the Smart Life / MOES app and make sure your CO2 sensor is connected — this refreshes the encryption key.",
         "data": {
           "region": "Tuya IoT region",
           "access_id": "Tuya IoT Access ID",
@@ -20,7 +20,9 @@
     "error": {
       "cannot_connect": "Could not get device key from Tuya cloud. Check your credentials.",
       "device_not_found": "Device not found",
-      "no_devices_found": "No CO2 BLE devices found nearby"
+      "no_devices_found": "No CO2 BLE devices found nearby",
+      "invalid_local_key": "Device rejected the encryption key. Please open Smart Life / MOES app, make sure the device is connected, then try again to get a fresh key from Tuya cloud.",
+      "ble_auth_failed": "BLE authentication failed. The local key may be outdated. Open Smart Life app → ensure the device is online → re-add this integration."
     },
     "abort": {
       "already_configured": "Device already configured",

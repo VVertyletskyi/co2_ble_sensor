@@ -1,11 +1,18 @@
 {
   "domain": "co2_ble_sensor",
   "name": "CO2 BLE Sensor (Tuya)",
-  "version": "1.0.0",
-  "documentation": "https://github.com/your-repo/co2_ble_sensor",
-  "requirements": ["cryptography>=41.0.0"],
-  "dependencies": ["bluetooth"],
-  "codeowners": [],
+  "version": "1.1.0",
+  "documentation": "https://github.com/VVertyletskyi/co2_ble_sensor",
+  "requirements": [
+    "cryptography>=41.0.0",
+    "pycryptodome>=3.18.0"
+  ],
+  "dependencies": [
+    "bluetooth"
+  ],
+  "codeowners": [
+    "@VVertyletskyi"
+  ],
   "config_flow": true,
   "iot_class": "local_push",
   "bluetooth": [

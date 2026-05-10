@@ -1,8 +1,9 @@
-"""Tuya BLE encryption and decryption."""
+"""Tuya BLE protocol implementation (based on ha_tuya_ble by PlusPlus-ua)."""
 from __future__ import annotations
 
 import hashlib
 import logging
+import secrets
 import struct
 import time
 from dataclasses import dataclass
@@ -13,159 +14,215 @@ from cryptography.hazmat.backends import default_backend
 
 _LOGGER = logging.getLogger(__name__)
 
-# Tuya BLE packet constants
-TUYA_BLE_FRAME_MAGIC = 0x000055AA
-TUYA_BLE_FRAME_TAIL = 0x00AA55
-TUYA_BLE_PROTOCOL_VERSION = 0x03
+# Command codes
+CMD_DEVICE_INFO   = 0x0000
+CMD_PAIR          = 0x0001
+CMD_SEND_DPS      = 0x0002
+CMD_DEVICE_STATUS = 0x0003
+CMD_RECEIVE_DP           = 0x8001
+CMD_RECEIVE_TIME_DP      = 0x8003
+CMD_RECEIVE_SIGN_DP      = 0x8004
+CMD_RECEIVE_SIGN_TIME_DP = 0x8005
+CMD_TIME1_REQ            = 0x8011
+CMD_TIME2_REQ            = 0x8012
 
-# Commands
-CMD_PAIR_REQ = 0x00
-CMD_PAIR_RESP = 0x01
-CMD_SESS_KEY_NEG_START = 0x05
-CMD_SESS_KEY_NEG_RES = 0x06
-CMD_SESS_KEY_NEG_FINISH = 0x07
-CMD_BOUND_REQ = 0x08
-CMD_BOUND_RESP = 0x09
-CMD_DEVICE_INFO_REQ = 0x0E
-CMD_DEVICE_INFO_RESP = 0x0F
-CMD_DATA_REPORT = 0x22
-CMD_DATA_QUERY = 0x24
-CMD_STATUS_REPORT = 0x22
+GATT_MTU = 20
+
+
+def calc_crc16(data: bytes) -> int:
+    crc = 0xFFFF
+    for byte in data:
+        crc ^= byte & 255
+        for _ in range(8):
+            tmp = crc & 1
+            crc >>= 1
+            if tmp:
+                crc ^= 0xA001
+    return crc
+
+
+def pack_int(value: int) -> bytes:
+    result = bytearray()
+    while True:
+        curr = value & 0x7F
+        value >>= 7
+        if value:
+            curr |= 0x80
+        result += bytes([curr])
+        if not value:
+            break
+    return bytes(result)
+
+
+def unpack_int(data: bytes, pos: int) -> tuple[int | None, int]:
+    result, offset = 0, 0
+    while offset < 5:
+        p = pos + offset
+        if p >= len(data):
+            return None, pos
+        b = data[p]
+        result |= (b & 0x7F) << (offset * 7)
+        offset += 1
+        if not (b & 0x80):
+            break
+    return result, pos + offset
+
+
+def aes_cbc_encrypt(key: bytes, iv: bytes, data: bytes) -> bytes:
+    while len(data) % 16:
+        data += b"\x00"
+    cipher = Cipher(algorithms.AES(key[:16]), modes.CBC(iv), backend=default_backend())
+    enc = cipher.encryptor()
+    return enc.update(data) + enc.finalize()
+
+
+def aes_cbc_decrypt(key: bytes, iv: bytes, data: bytes) -> bytes:
+    cipher = Cipher(algorithms.AES(key[:16]), modes.CBC(iv), backend=default_backend())
+    dec = cipher.decryptor()
+    return dec.update(data) + dec.finalize()
 
 
 @dataclass
-class TuyaBLEPacket:
-    """Tuya BLE packet."""
-    cmd: int
-    data: bytes
-    seq: int = 0
+class TuyaDataPoint:
+    id: int
+    type: int
+    value: Any
 
 
-class TuyaBLECrypto:
-    """Handles Tuya BLE encryption."""
-
-    def __init__(self, local_key: str, uuid: str) -> None:
-        self._local_key = local_key.encode()
-        self._uuid = uuid.encode()
-        self._session_key: bytes | None = None
-        self._seq = 0
-
-    def _get_key(self) -> bytes:
-        """Get encryption key."""
-        if self._session_key:
-            return self._session_key
-        return self._local_key[:16].ljust(16, b'\0')
-
-    def _encrypt(self, data: bytes, key: bytes) -> bytes:
-        """Encrypt data with AES-128-ECB."""
-        remainder = len(data) % 16
-        padded = data + b'\0' * (16 - remainder) if remainder else data + b'\0' * 16
-        cipher = Cipher(
-            algorithms.AES(key[:16]),
-            modes.ECB(),
-            backend=default_backend()
-        )
-        encryptor = cipher.encryptor()
-        return encryptor.update(padded) + encryptor.finalize()
-
-    def _decrypt(self, data: bytes, key: bytes) -> bytes:
-        """Decrypt data with AES-128-ECB."""
-        cipher = Cipher(
-            algorithms.AES(key[:16]),
-            modes.ECB(),
-            backend=default_backend()
-        )
-        decryptor = cipher.decryptor()
-        return decryptor.update(data) + decryptor.finalize()
-
-    def build_packet(self, cmd: int, data: bytes) -> bytes:
-        """Build encrypted Tuya BLE packet."""
-        self._seq += 1
-        seq = self._seq
-
-        # Build inner data
-        inner = struct.pack(">I", seq) + struct.pack(">H", cmd) + struct.pack(">H", len(data)) + data
-
-        # Encrypt
-        key = self._get_key()
-        encrypted = self._encrypt(inner, key)
-
-        # Build frame
-        frame = struct.pack(">I", TUYA_BLE_FRAME_MAGIC)
-        frame += struct.pack(">B", TUYA_BLE_PROTOCOL_VERSION)
-        frame += struct.pack(">B", 0x00)  # encrypt type
-        frame += struct.pack(">H", len(encrypted))
-        frame += encrypted
-
-        # CRC
-        crc = sum(frame[4:]) & 0xFF
-        frame += struct.pack(">B", crc)
-        frame += struct.pack(">H", TUYA_BLE_FRAME_TAIL)
-
-        return frame
-
-    def parse_packet(self, data: bytes) -> TuyaBLEPacket | None:
-        """Parse and decrypt incoming Tuya BLE packet."""
-        try:
-            if len(data) < 12:
-                return None
-
-            # Check magic
-            magic = struct.unpack(">I", data[:4])[0]
-            if magic != TUYA_BLE_FRAME_MAGIC:
-                return None
-
-            length = struct.unpack(">H", data[6:8])[0]
-            encrypted = data[8:8 + length]
-
-            key = self._get_key()
-            decrypted = self._decrypt(encrypted, key)
-
-            seq = struct.unpack(">I", decrypted[:4])[0]
-            cmd = struct.unpack(">H", decrypted[4:6])[0]
-            data_len = struct.unpack(">H", decrypted[6:8])[0]
-            payload = decrypted[8:8 + data_len]
-
-            return TuyaBLEPacket(cmd=cmd, data=payload, seq=seq)
-        except Exception as e:
-            _LOGGER.debug("Failed to parse packet: %s", e)
-            return None
-
-    def build_query_packet(self) -> bytes:
-        """Build data query packet."""
-        return self.build_packet(CMD_DATA_QUERY, b'')
-
-    def set_session_key(self, key: bytes) -> None:
-        """Set negotiated session key."""
-        self._session_key = key
-
-
-def parse_datapoints(data: bytes) -> dict[int, Any]:
-    """Parse Tuya datapoints from payload."""
-    result = {}
-    offset = 0
-
-    while offset + 4 <= len(data):
-        dp_id = data[offset]
-        dp_type = data[offset + 1]
-        dp_len = struct.unpack(">H", data[offset + 2:offset + 4])[0]
-        offset += 4
-
-        if offset + dp_len > len(data):
+def parse_datapoints(data: bytes, start: int = 0) -> list[TuyaDataPoint]:
+    result = []
+    pos = start
+    while len(data) - pos >= 3:
+        dp_id   = data[pos];     pos += 1
+        dp_type = data[pos];     pos += 1
+        dp_len  = data[pos];     pos += 1
+        if pos + dp_len > len(data):
             break
+        raw = data[pos:pos + dp_len]; pos += dp_len
 
-        dp_data = data[offset:offset + dp_len]
-        offset += dp_len
+        if dp_type == 1:    # BOOL
+            val = bool(raw[0]) if raw else False
+        elif dp_type == 2:  # VALUE (signed int)
+            val = int.from_bytes(raw, "big", signed=True)
+        elif dp_type == 3:  # STRING
+            val = raw.decode("utf-8", errors="replace")
+        elif dp_type == 4:  # ENUM
+            val = int.from_bytes(raw, "big") if raw else 0
+        else:               # RAW/BITMAP
+            val = raw
 
-        if dp_type == 0x01:  # boolean
-            result[dp_id] = bool(dp_data[0])
-        elif dp_type == 0x02:  # integer
-            result[dp_id] = int.from_bytes(dp_data, "big", signed=True)
-        elif dp_type == 0x03:  # string
-            result[dp_id] = dp_data.decode("utf-8", errors="ignore")
-        elif dp_type == 0x04:  # enum
-            result[dp_id] = dp_data.decode("utf-8", errors="ignore")
-        elif dp_type == 0x05:  # raw
-            result[dp_id] = dp_data.hex()
-
+        result.append(TuyaDataPoint(id=dp_id, type=dp_type, value=val))
     return result
+
+
+def skip_timestamp(data: bytes, pos: int) -> int:
+    if pos >= len(data):
+        return pos
+    time_type = data[pos]; pos += 1
+    if time_type == 0:    # 13-byte ms string
+        pos += 13
+    elif time_type == 1:  # 4-byte unix
+        pos += 4
+    return pos
+
+
+class TuyaBLEProtocol:
+    """Handles Tuya BLE 3.x protocol encryption and packet building."""
+
+    def __init__(self, local_key: str, uuid: str, device_id: str) -> None:
+        self._local_key_6 = local_key[:6].encode()
+        self._uuid = uuid
+        self._device_id = device_id
+        self._login_key = hashlib.md5(self._local_key_6).digest()
+        self._session_key: bytes | None = None
+        self._protocol_version = 3
+        self._seq = 1
+
+    @property
+    def is_ready(self) -> bool:
+        return self._session_key is not None
+
+    def process_device_info(self, data: bytes) -> dict:
+        """Parse device info response and compute session key."""
+        if len(data) < 12:
+            return {}
+        srand = data[6:12]
+        self._session_key = hashlib.md5(self._local_key_6 + srand).digest()
+        self._protocol_version = data[2]
+        return {
+            "device_version": f"{data[0]}.{data[1]}",
+            "protocol_version": f"{data[2]}.{data[3]}",
+            "is_bound": data[5] != 0,
+        }
+
+    def build_pair_data(self) -> bytes:
+        """Build pairing payload: uuid + local_key[:6] + device_id, padded to 44."""
+        result = bytearray()
+        result += self._uuid.encode()
+        result += self._local_key_6
+        result += self._device_id.encode()
+        while len(result) < 44:
+            result += b"\x00"
+        return bytes(result[:44])
+
+    def build_time1_response(self) -> bytes:
+        ts = int(time.time_ns() / 1_000_000)
+        tz = -int(time.timezone / 36)
+        return str(ts).encode() + struct.pack(">h", tz)
+
+    def build_time2_response(self) -> bytes:
+        t = time.localtime()
+        tz = -int(time.timezone / 36)
+        return struct.pack(">BBBBBBBh",
+            t.tm_year % 100, t.tm_mon, t.tm_mday,
+            t.tm_hour, t.tm_min, t.tm_sec, t.tm_wday, tz)
+
+    def build_packets(self, code: int, data: bytes, response_to: int = 0) -> list[bytes]:
+        """Build BLE packets for a command."""
+        key = self._login_key if code == CMD_DEVICE_INFO else self._session_key
+        if key is None:
+            raise ValueError("Session key not available")
+
+        seq = self._seq; self._seq += 1
+        iv = secrets.token_bytes(16)
+        security_flag = b"\x04" if code == CMD_DEVICE_INFO else b"\x05"
+
+        raw = bytearray()
+        raw += struct.pack(">IIHH", seq, response_to, code, len(data))
+        raw += data
+        crc = calc_crc16(raw)
+        raw += struct.pack(">H", crc)
+        while len(raw) % 16:
+            raw += b"\x00"
+
+        encrypted = security_flag + iv + aes_cbc_encrypt(key, iv, bytes(raw))
+
+        packets, packet_num, pos, length = [], 0, 0, len(encrypted)
+        while pos < length:
+            packet = bytearray(pack_int(packet_num))
+            if packet_num == 0:
+                packet += pack_int(length)
+                packet += bytes([self._protocol_version << 4])
+            data_part = encrypted[pos:pos + GATT_MTU - len(packet)]
+            packet += data_part
+            packets.append(bytes(packet))
+            pos += len(data_part)
+            packet_num += 1
+
+        return packets, seq
+
+    def parse_packet(self, buf: bytes, flag: int) -> dict | None:
+        """Decrypt and parse a complete received packet."""
+        key = self._login_key if flag == 4 else self._session_key
+        if key is None:
+            return None
+        try:
+            iv = buf[1:17]
+            encrypted = buf[17:]
+            raw = aes_cbc_decrypt(key, iv, encrypted)
+            seq, resp_to, code, length = struct.unpack(">IIHH", raw[:12])
+            data = raw[12:12 + length]
+            return {"seq": seq, "resp_to": resp_to, "code": code, "data": data}
+        except Exception as e:
+            _LOGGER.debug("Packet parse error: %s", e)
+            return None
