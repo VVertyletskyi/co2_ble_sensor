@@ -3,7 +3,7 @@
   "name": "CO2 BLE Sensor (Tuya)",
   "version": "1.0.0",
   "documentation": "https://github.com/your-repo/co2_ble_sensor",
-  "requirements": ["bleak==0.21.1", "cryptography>=41.0.0"],
+  "requirements": ["cryptography>=41.0.0"],
   "dependencies": ["bluetooth"],
   "codeowners": [],
   "config_flow": true,
