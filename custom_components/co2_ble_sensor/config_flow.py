@@ -19,8 +19,6 @@ from .const import (
     DOMAIN,
     CONF_ACCESS_ID,
     CONF_ACCESS_SECRET,
-    CONF_USERNAME,
-    CONF_PASSWORD,
     CONF_REGION,
     CONF_CONNECTION_MODE,
     CONF_SCAN_INTERVAL,
@@ -116,8 +114,6 @@ class CO2BLESensorConfigFlow(ConfigFlow, domain=DOMAIN):
                 vol.Required(CONF_REGION, default=DEFAULT_REGION): vol.In(TUYA_REGIONS),
                 vol.Required(CONF_ACCESS_ID): str,
                 vol.Required(CONF_ACCESS_SECRET): str,
-                vol.Required(CONF_USERNAME): str,
-                vol.Required(CONF_PASSWORD): str,
             }),
             errors=errors,
             description_placeholders={
@@ -134,8 +130,6 @@ class CO2BLESensorConfigFlow(ConfigFlow, domain=DOMAIN):
         cloud = TuyaCloudClient(
             access_id=self._credentials[CONF_ACCESS_ID],
             access_secret=self._credentials[CONF_ACCESS_SECRET],
-            username=self._credentials[CONF_USERNAME],
-            password=self._credentials[CONF_PASSWORD],
             region=self._credentials.get(CONF_REGION, DEFAULT_REGION),
         )
 
@@ -144,11 +138,11 @@ class CO2BLESensorConfigFlow(ConfigFlow, domain=DOMAIN):
             return self.async_show_form(
                 step_id="credentials",
                 data_schema=vol.Schema({
+                    vol.Required(CONF_REGION, default=DEFAULT_REGION): vol.In(TUYA_REGIONS),
                     vol.Required(CONF_ACCESS_ID): str,
                     vol.Required(CONF_ACCESS_SECRET): str,
                     vol.Required(CONF_USERNAME): str,
                     vol.Required(CONF_PASSWORD): str,
-                    vol.Optional(CONF_COUNTRY_CODE, default="380"): str,
                 }),
                 errors={"base": "cannot_connect"},
             )

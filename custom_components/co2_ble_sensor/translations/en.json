@@ -13,9 +13,7 @@
         "data": {
           "region": "Tuya IoT region",
           "access_id": "Tuya IoT Access ID",
-          "access_secret": "Tuya IoT Access Secret",
-          "username": "Smart Life / MOES account email or phone",
-          "password": "Smart Life / MOES account password"
+          "access_secret": "Tuya IoT Access Secret"
         }
       }
     },
