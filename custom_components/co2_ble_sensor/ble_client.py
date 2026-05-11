@@ -8,6 +8,7 @@ from typing import Any
 
 from bleak import BleakClient, BleakError
 from bleak.backends.device import BLEDevice
+from bleak_retry_connector import establish_connection
 
 from .const import (
     TUYA_BLE_NOTIFY_UUID,
@@ -98,7 +99,13 @@ class CO2BLEClient:
 
     async def _connect_and_run(self) -> None:
         _LOGGER.debug("Connecting to %s", self._device.address)
-        async with BleakClient(self._device, timeout=CONNECT_TIMEOUT) as client:
+        client = await establish_connection(
+                BleakClient,
+                self._device,
+                self._device.address,
+                max_attempts=3,
+            )
+        async with client:
             self._client = client
             _LOGGER.debug("Connected to %s", self._device.address)
 
@@ -309,7 +316,13 @@ class CO2BLEClient:
         _LOGGER.debug("Not connected, forcing connection to send threshold command")
         try:
             device = self._device
-            async with BleakClient(device, timeout=CONNECT_TIMEOUT) as client:
+            client = await establish_connection(
+                    BleakClient,
+                    device,
+                    device.address,
+                    max_attempts=3,
+                )
+            async with client:
                 self._client = client
                 await client.start_notify(TUYA_BLE_NOTIFY_UUID, self._notification_handler)
 
