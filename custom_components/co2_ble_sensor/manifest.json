@@ -5,7 +5,8 @@
   "documentation": "https://github.com/VVertyletskyi/co2_ble_sensor",
   "requirements": [
     "cryptography>=41.0.0",
-    "pycryptodome>=3.18.0"
+    "pycryptodome>=3.18.0",
+    "bleak-retry-connector>=3.0.0"
   ],
   "dependencies": [
     "bluetooth"
